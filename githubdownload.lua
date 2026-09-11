@@ -6,7 +6,7 @@ local BRANCH = "main"
 
 local function githubGet(url)
     local response, err = http.get(url, {
-        ["Authorization"] = "Bearer " .. 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,
+        ["Authorization"] = "Bearer " .. ,
         ["Accept"] = "application/vnd.github+json",
         ["X-GitHub-Api-Version"] = "2022-11-28",
         ["User-Agent"] = "CC-Tweaked"
