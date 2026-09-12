@@ -1,0 +1,33 @@
+package ink.astrius.create_avionics.compat.simulated.peripherals;
+
+import dan200.computercraft.api.peripheral.IPeripheral;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.phys.Vec3;
+import org.joml.Vector3dc;
+
+import java.util.List;
+
+public abstract class SimPeripheral<T extends BlockEntity> implements IPeripheral {
+
+    protected final T blockEntity;
+
+    public SimPeripheral(final T blockEntity) {
+        this.blockEntity = blockEntity;
+    }
+
+    // Identity equality assumes SimPeripheralService caches one wrapper per
+    // BlockEntity. If it ever returns a fresh wrapper per getPeripheral call,
+    // CC will see spurious detach/attach churn.
+    @Override
+    public boolean equals(final IPeripheral iPeripheral) {
+        return iPeripheral == this;
+    }
+
+    public static List<Double> vecList(final Vec3 vec3) {
+        return List.of(vec3.x(), vec3.y(), vec3.z());
+    }
+
+    public static List<Double> vecList(final Vector3dc vec3) {
+        return List.of(vec3.x(), vec3.y(), vec3.z());
+    }
+}

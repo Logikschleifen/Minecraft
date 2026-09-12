@@ -1,0 +1,142 @@
+package de.srendi.advancedperipherals.common.addons.computercraft.peripheral;
+
+import dan200.computercraft.api.lua.IArguments;
+import dan200.computercraft.api.lua.LuaException;
+import dan200.computercraft.api.lua.LuaFunction;
+import dan200.computercraft.api.lua.MethodResult;
+import dan200.computercraft.api.pocket.IPocketAccess;
+import dan200.computercraft.api.turtle.ITurtleAccess;
+import dan200.computercraft.api.turtle.TurtleSide;
+import de.srendi.advancedperipherals.common.addons.computercraft.operations.SphereOperationContext;
+import de.srendi.advancedperipherals.common.addons.computercraft.owner.BlockEntityPeripheralOwner;
+import de.srendi.advancedperipherals.common.addons.computercraft.owner.IPeripheralOwner;
+import de.srendi.advancedperipherals.common.addons.computercraft.owner.PocketPeripheralOwner;
+import de.srendi.advancedperipherals.common.addons.computercraft.owner.TurtlePeripheralOwner;
+import de.srendi.advancedperipherals.common.blocks.base.PeripheralBlockEntity;
+import de.srendi.advancedperipherals.common.configuration.APConfig;
+import de.srendi.advancedperipherals.common.util.LuaConverter;
+import de.srendi.advancedperipherals.common.util.ScanUtils;
+import de.srendi.advancedperipherals.lib.peripherals.BasePeripheral;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.chunk.LevelChunk;
+import net.neoforged.neoforge.common.Tags;
+import org.jetbrains.annotations.NotNull;
+
+import java.util.AbstractMap;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import static de.srendi.advancedperipherals.common.addons.computercraft.operations.SphereOperation.SCAN_BLOCKS;
+
+public class GeoScannerPeripheral extends BasePeripheral<IPeripheralOwner> {
+
+    /*
+    Highly inspired by https://github.com/SquidDev-CC/plethora/ BlockScanner
+    */
+
+    public static final String PERIPHERAL_TYPE = "geo_scanner";
+
+    protected GeoScannerPeripheral(IPeripheralOwner owner) {
+        super(PERIPHERAL_TYPE, owner);
+        owner.attachOperation(SCAN_BLOCKS);
+    }
+
+    public GeoScannerPeripheral(PeripheralBlockEntity<?> tileEntity) {
+        this(new BlockEntityPeripheralOwner<>(tileEntity).attachFuel());
+    }
+
+    public GeoScannerPeripheral(ITurtleAccess turtle, TurtleSide side) {
+        this(new TurtlePeripheralOwner(turtle, side).attachFuel(1));
+    }
+
+    public GeoScannerPeripheral(IPocketAccess pocket) {
+        this(new PocketPeripheralOwner(pocket));
+    }
+
+    private static List<Map<String, Object>> scan(Level level, BlockPos center, int radius) {
+        List<Map<String, Object>> result = new ArrayList<>();
+        ScanUtils.relativeTraverseBlocks(level, center, radius, (state, pos) -> {
+            Map<String, Object> data = new HashMap<>(6 * 2);
+            data.put("x", pos.getX());
+            data.put("y", pos.getY());
+            data.put("z", pos.getZ());
+
+            Block block = state.getBlock();
+            ResourceLocation name = BuiltInRegistries.BLOCK.getKey(block);
+            data.put("name", name == null ? "unknown" : name.toString());
+            data.put("tags", LuaConverter.getHolderTags(block.builtInRegistryHolder()));
+
+            result.add(data);
+        });
+
+        return result;
+    }
+
+    private static int estimateCost(int radius) {
+        if (radius > SCAN_BLOCKS.getMaxCostRadius()) return -1;
+
+        return SCAN_BLOCKS.getCost(SphereOperationContext.of(radius));
+    }
+
+    @Override
+    public boolean isEnabled() {
+        return APConfig.PERIPHERALS_CONFIG.enableGeoScanner.get();
+    }
+
+    @LuaFunction
+    public final MethodResult cost(int radius) {
+        int estimatedCost = estimateCost(radius);
+        if (estimatedCost < 0) {
+            return MethodResult.of(null, "Radius is exceed max value");
+        }
+        return MethodResult.of(estimatedCost);
+    }
+
+    @LuaFunction(mainThread = true)
+    public final MethodResult chunkAnalyze() throws LuaException {
+        return withOperation(SCAN_BLOCKS, SCAN_BLOCKS.free(), null, ignored -> {
+            Level level = getLevel();
+            LevelChunk chunk = level.getChunkAt(getPos());
+            ChunkPos chunkPos = chunk.getPos();
+            Map<ResourceLocation, Integer> data = new HashMap<>();
+            for (int x = chunkPos.getMinBlockX(); x <= chunkPos.getMaxBlockX(); x++) {
+                for (int z = chunkPos.getMinBlockZ(); z <= chunkPos.getMaxBlockZ(); z++) {
+                    for (int y = level.getMinBuildHeight(); y < level.getHeight(); y++) {
+                        BlockState block = chunk.getBlockState(new BlockPos(x, y, z));
+                        ResourceLocation name = BuiltInRegistries.BLOCK.getKey(block.getBlock());
+                        if (name != null && block.is(Tags.Blocks.ORES)) {
+                            data.compute(name, (k, v) -> (v == null ? 0 : v) + 1);
+                        }
+                    }
+                }
+            }
+            return MethodResult.of(
+                Map.ofEntries(
+                    data.entrySet()
+                        .stream()
+                        .map((entry) -> new AbstractMap.SimpleImmutableEntry(entry.getKey().toString(), entry.getValue()))
+                        .toArray(Map.Entry[]::new)
+                )
+            );
+        }, null);
+    }
+
+    @LuaFunction(mainThread = true)
+    public final MethodResult scan(@NotNull IArguments arguments) throws LuaException {
+        int radius = arguments.getInt(0);
+        return withOperation(SCAN_BLOCKS, new SphereOperationContext(radius), context -> {
+            if (context.getRadius() > SCAN_BLOCKS.getMaxCostRadius()) {
+                return MethodResult.of(null, "Radius is exceed max value");
+            }
+            return null;
+        }, context -> MethodResult.of(scan(getLevel(), getPos(), context.getRadius())), null);
+    }
+}
