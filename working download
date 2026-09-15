@@ -1,1 +1,3 @@
-`wget https://raw.githubusercontent.com/Logikschleifen/Minecraft/main/githubdownload.lua githubdownload.lua`
+wget https://raw.githubusercontent.com/Logikschleifen/Minecraft/main/githubdownload.lua githubdownload.lua
+
+wget https://raw.githubusercontent.com/Logikschleifen/Minecraft/main/src/inventory/main.lua main.lua

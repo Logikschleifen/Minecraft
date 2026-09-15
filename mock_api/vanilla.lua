@@ -142,4 +142,36 @@ M.types["computer"] = {
     getLabel = function() return nil end,
 }
 
+-- Generic inventory (chest, barrel, etc.). CC:Tweaked exposes size/list/
+-- getItemDetail/getItemLimit/pushItems/pullItems on any inventory block.
+-- Spec: https://tweaked.cc/reference/feature/inventories.html and
+-- api-docs/cctweaked/doc/reference/item_details.md
+M.types["inventory"] = {
+    ---@return integer slots in this inventory (stub: 27 single chest).
+    size = function() return 27 end,
+    ---@return table<integer, table> sparse slot -> {name, count, nbt?} (stub: {}).
+    list = function() return {} end,
+    ---@param slot integer
+    ---@param detailed boolean|nil when true add displayName/maxCount/tags etc.
+    ---@return table|nil (stub: nil, empty slot).
+    getItemDetail = function(slot, detailed) return nil end,
+    ---@param slot integer
+    ---@return integer max stack size for slot (stub: 64).
+    getItemLimit = function(slot) return 64 end,
+    ---@param toName string peripheral name to push to
+    ---@param fromSlot integer
+    ---@param limit integer|nil max to move
+    ---@param toSlot integer|nil target slot
+    ---@return integer moved (stub: 0).
+    pushItems = function(toName, fromSlot, limit, toSlot) return 0 end,
+    ---@param fromName string peripheral name to pull from
+    ---@param fromSlot integer
+    ---@param limit integer|nil
+    ---@param toSlot integer|nil
+    ---@return integer moved (stub: 0).
+    pullItems = function(fromName, fromSlot, limit, toSlot) return 0 end,
+}
+-- Alias used by CC for type checks on chest blocks.
+M.types["minecraft:chest"] = M.types["inventory"]
+
 return M
