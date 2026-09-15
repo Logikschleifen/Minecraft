@@ -15,6 +15,47 @@ if type(shell) == "table" and shell.getRunningProgram and type(fs) == "table" th
     package.path = package.path .. ";" .. dir .. "/?.lua;" .. dir .. "/?/init.lua"
 end
 
+-- File-only logging: overwrite one log in the computer's own dir.
+-- Relative dir = same folder as this script (fs.getDir) or cwd if shell unavailable.
+---@type string log path relative to this computer
+local logPath = "inventory.log"
+if type(shell) == "table" and shell.getRunningProgram and type(fs) == "table" and type(fs.combine) == "function" then
+    local dir = fs.getDir(shell.getRunningProgram())
+    if dir and dir ~= "" then logPath = fs.combine(dir, "inventory.log") end
+end
+---@type table|nil file handle from fs.open
+local logHandle = nil
+---@type function|nil closer that restores print and closes file
+local closeLog = nil
+if type(fs) == "table" and type(fs.open) == "function" then
+    local f, err = fs.open(logPath, "w")
+    if f then
+        logHandle = f
+        local oldPrint = print
+        _G.print = function(...)
+            local n = select("#", ...)
+            local parts = {}
+            for i = 1, n do parts[i] = tostring(select(i, ...)) end
+            -- print separates with \t, file gets one line
+            local line = table.concat(parts, "\t")
+            -- fs handle is writeLine-based in CC
+            if logHandle and type(logHandle.writeLine) == "function" then
+                logHandle.writeLine(line)
+            elseif logHandle and type(logHandle.write) == "function" then
+                logHandle.write(line .. "\n")
+            end
+        end
+        closeLog = function()
+            if logHandle and type(logHandle.close) == "function" then logHandle.close() end
+            logHandle = nil
+            _G.print = oldPrint
+        end
+    else
+        -- fallback: fs exists but open failed, keep terminal print
+        if err then print("log open failed: " .. tostring(err)) end
+    end
+end
+
 ---@class InventoryItemBasic
 ---@field name string namespaced id, e.g. "minecraft:cobblestone"
 ---@field count integer items in stack
@@ -233,4 +274,10 @@ else
         local chest = peripheral.wrap(name) --[[@as InventoryPeripheral]]
         if chest then demoOne(name, chest) end
     end
+end
+
+-- close file-only log and restore terminal
+if closeLog then
+    closeLog()
+    print("Log written to " .. logPath .. " (overwrite, file-only) — view with `cat " .. logPath .. "` or `edit " .. logPath .. "`")
 end
