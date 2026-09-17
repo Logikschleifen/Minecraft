@@ -1,7 +1,7 @@
 -- mock_api/create.lua
 -- Method tables for the Create mod's ComputerCraft peripherals.
 -- Source: api-docs/create/peripherals/*.java (@LuaFunction + getType()).
--- GENERATED from api-docs by gen_peripherals.py — do not hand-edit.
+-- GENERATED from api-docs by gen_peripherals.py ï¿½ do not hand-edit.
 -- Stateless stubs: every method exists, is callable, returns a sane
 -- default. M._state / M.reset() are the seam for a stateful version.
 
@@ -261,11 +261,26 @@ end
 ---@class create.CreateStockTicker
 M.types["Create_StockTicker"] = {}
 do
+    local function impl_Create_StockTicker_stock(detailed) return {} end
+    ---@param detailed boolean|nil
+    ---@return table
+    M.types["Create_StockTicker"].stock = impl_Create_StockTicker_stock
+    local function impl_Create_StockTicker_getStockItemDetail(slot) return {} end
+    ---@param slot integer
+    ---@return table
+    M.types["Create_StockTicker"].getStockItemDetail = impl_Create_StockTicker_getStockItemDetail
     local function impl_Create_StockTicker_requestFiltered(address, filters) return 0 end
     ---@param address string
     ---@param filters table
     ---@return integer
     M.types["Create_StockTicker"].requestFiltered = impl_Create_StockTicker_requestFiltered
+    local function impl_Create_StockTicker_list() return {} end
+    ---@return table
+    M.types["Create_StockTicker"].list = impl_Create_StockTicker_list
+    local function impl_Create_StockTicker_getItemDetail(slot) return {} end
+    ---@param slot integer
+    ---@return table
+    M.types["Create_StockTicker"].getItemDetail = impl_Create_StockTicker_getItemDetail
 end
 
 ---@class create.CreateTableClothShop
