@@ -2,6 +2,13 @@
 -- Prints vault stock via Create Stock Ticker and requests one wooden plank (any type).
 -- Runs unchanged in-game and under PC tests (shim bootstrap below).
 
+-- ===== config =====
+-- Packager / Frogport address to deliver to. Edit this to your network's address.
+-- The computer does NOT need to be next to the packager — only next to (or
+-- wired to) the Stock Ticker. The ticker routes via the address string.
+---@type string
+local TARGET_ADDRESS = "Lab"
+
 -- luacheck: ignore (globals print/peripheral/textutils/shell/fs are CC-provided in-game)
 local ok, shim = pcall(require, "mock_api.shim")
 if ok and shim then shim.useMocks() end -- PC: fakes on; game: silent no-op
@@ -11,12 +18,45 @@ if type(shell) == "table" and shell.getRunningProgram and type(fs) == "table" th
     package.path = package.path .. ";" .. dir .. "/?.lua;" .. dir .. "/?/init.lua"
 end
 
--- ===== config =====
--- Packager / Frogport address to deliver to. Edit this to your network's address.
--- The computer does NOT need to be next to the packager — only next to (or
--- wired to) the Stock Ticker. The ticker routes via the address string.
----@type string
-local TARGET_ADDRESS = "PACKAGER_ADDRESS_HERE"
+-- File-only logging: overwrite one log in the computer's own dir. Matches main.lua pattern.
+-- Relative dir = same folder as this script (fs.getDir) or cwd if shell unavailable.
+---@type string log path relative to this computer
+local logPath = "stocker.log"
+if type(shell) == "table" and shell.getRunningProgram and type(fs) == "table" and type(fs.combine) == "function" then
+    local dir = fs.getDir(shell.getRunningProgram())
+    if dir and dir ~= "" then logPath = fs.combine(dir, "stocker.log") end
+end
+---@type table|nil file handle from fs.open
+local logHandle = nil
+---@type function|nil closer that restores print and closes file
+local closeLog = nil
+if type(fs) == "table" and type(fs.open) == "function" then
+    local f, err = fs.open(logPath, "w")
+    if f then
+        logHandle = f
+        local oldPrint = print
+        _G.print = function(...)
+            local n = select("#", ...)
+            local parts = {}
+            for i = 1, n do parts[i] = tostring(select(i, ...)) end
+            local line = table.concat(parts, "\t")
+            if logHandle and type(logHandle.writeLine) == "function" then
+                logHandle.writeLine(line)
+            elseif logHandle and type(logHandle.write) == "function" then
+                logHandle.write(line .. "\n")
+            end
+        end
+        closeLog = function()
+            if logHandle and type(logHandle.close) == "function" then logHandle.close() end
+            logHandle = nil
+            _G.print = oldPrint
+        end
+    else
+        if err then print("log open failed: " .. tostring(err)) end
+    end
+end
+
+
 
 -- Any vanilla plank variant to try, in order. requestFiltered matches exact
 -- `name`, so we try each name until one succeeds (ensures exactly 1 plank).
@@ -131,6 +171,7 @@ if not ticker then
     print("  attached: " .. serialise(peripheral.getNames()))
     print("  Place/wire a Stock Ticker next to the computer, or in tests:")
     print('    peripheral.attach("back", "Create_StockTicker")')
+    if closeLog then closeLog() end
     return
 end
 
@@ -147,4 +188,10 @@ else
     print("Requesting 1 plank (any type) to '" .. TARGET_ADDRESS .. "' ...")
     local sent = requestOnePlank(ticker, TARGET_ADDRESS)
     print("Done. sent=" .. tostring(sent))
+end
+
+-- close file-only log and restore terminal; announce path like main.lua:279
+if closeLog then
+    closeLog()
+    print("Log written to " .. logPath .. " (overwrite, file-only) — view with `cat " .. logPath .. "` or `edit " .. logPath .. "`")
 end
