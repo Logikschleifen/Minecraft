@@ -175,7 +175,6 @@ if not ticker then
     return
 end
 
-print("Ticker: " .. tostring(tname) .. " (" .. tostring(peripheral.getType(tname)) .. ")")
 printStock(ticker)
 
 if TARGET_ADDRESS == "PACKAGER_ADDRESS_HERE" or TARGET_ADDRESS == "" then
