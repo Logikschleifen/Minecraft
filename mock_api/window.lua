@@ -13,7 +13,7 @@ Window.__index = Window
 
 -- Term-compatible surface shared by every mock window.
 local TERMLIKE = {
-    "write", "scroll", "getCursorPos", "setCursorPos",
+    "write", "blit", "scroll", "getCursorPos", "setCursorPos",
     "getCursorBlink", "setCursorBlink", "getSize", "clear", "clearLine",
     "getTextColor", "getTextColour", "setTextColor", "setTextColour",
     "getBackgroundColor", "getBackgroundColour",
@@ -61,6 +61,12 @@ local function createWindow(parent, x, y, width, height, visible)
     function w.setPaletteColour(i, c) end
     function w.getPaletteColor(i) return 0xFFFFFF end
     function w.getPaletteColour(i) return 0xFFFFFF end
+    function w.blit(text, fg, bg)
+        if type(text) ~= "string" then error("bad argument #1 (expected string, got " .. type(text) .. ")", 2) end
+        if type(fg) ~= "string" then error("bad argument #2 (expected string, got " .. type(fg) .. ")", 2) end
+        if type(bg) ~= "string" then error("bad argument #3 (expected string, got " .. type(bg) .. ")", 2) end
+        if #fg ~= #text or #bg ~= #text then error("Arguments must be the same length", 2) end
+    end
     function w.redraw() end
     function w.restoreCursor() end
     function w.setVisible(v) w._visible = v end

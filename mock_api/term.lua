@@ -173,4 +173,15 @@ end
 function M.setGraphicsMode(mode)
 end
 
+---Write text with per-character colours. Validates equal lengths like real term.
+---@param text string
+---@param fg string hex colours for text
+---@param bg string hex colours for background
+function M.blit(text, fg, bg)
+    if type(text) ~= "string" then error("bad argument #1 (expected string, got " .. type(text) .. ")", 2) end
+    if type(fg) ~= "string" then error("bad argument #2 (expected string, got " .. type(fg) .. ")", 2) end
+    if type(bg) ~= "string" then error("bad argument #3 (expected string, got " .. type(bg) .. ")", 2) end
+    if #fg ~= #text or #bg ~= #text then error("Arguments must be the same length", 2) end
+end
+
 return M

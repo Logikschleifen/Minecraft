@@ -40,6 +40,12 @@ M.types["modem"] = {
 -- Monitor (advanced handling ignored; term-compatible + text scale).
 M.types["monitor"] = {
     write = function(text) end,
+    blit = function(text, fg, bg)
+        if type(text) ~= "string" then error("bad argument #1 (expected string, got " .. type(text) .. ")", 2) end
+        if type(fg) ~= "string" then error("bad argument #2 (expected string, got " .. type(fg) .. ")", 2) end
+        if type(bg) ~= "string" then error("bad argument #3 (expected string, got " .. type(bg) .. ")", 2) end
+        if #fg ~= #text or #bg ~= #text then error("Arguments must be the same length", 2) end
+    end,
     scroll = function(n) end,
     getCursorPos = function() return 1, 1 end,
     setCursorPos = function(x, y) end,

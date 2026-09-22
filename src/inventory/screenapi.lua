@@ -504,6 +504,7 @@ local function demoOne(name, mon)
             end
         end
     end
+    
     pcall(mon.setTextScale, origScale)
     local rw, rh = mon.getSize()
     print(string.format("  restored setTextScale(%s) -> %d x %d", tostring(origScale), rw, rh))
@@ -582,12 +583,13 @@ local function demoOne(name, mon)
         -- blit needs equal-length strings: text, fg hex, bg hex
         -- "Hi!" with yellow on blue, etc.
         mon.setCursorPos(1, 3)
-        -- toBlit('e')=red fallback if no colors
-        local fg = "eee"
-        local bg = "fff"
+        local text = "Hi!"
+        -- toBlit('e')=red fallback if no colors; generate fg/bg to match #text so lengths always equal
+        local fg = string.rep("e", #text)
+        local bg = string.rep("f", #text)
         if col and col.toBlit then fg = col.toBlit(yellow) .. col.toBlit(white) .. col.toBlit(red) end
-        -- bg stays black 'f'
-        pcall(mon.blit, "Hi!", fg, bg)
+        -- bg stays black 'f' (already length-matched via rep above)
+        pcall(mon.blit, text, fg, bg)
         print("blit('Hi!', fg, bg) at 3,1")
     else
         print("blit() not on this monitor stub (real hardware has it via term)")
@@ -620,7 +622,11 @@ local function demoOne(name, mon)
     -- blit via term (always available, even if mon.blit missing)
     if type(term.blit) == "function" then
         term.setCursorPos(1, 3)
-        term.blit("term.blit!", "eeeeeeeeee", "ffffffffff")
+        local t = "term.blit!"
+        -- generate fg/bg to match #t so Arguments must be same length never fires
+        local fg2 = string.rep("e", #t)
+        local bg2 = string.rep("f", #t)
+        term.blit(t, fg2, bg2)
         print("  term.blit('term.blit!',...)")
     end
     print("  term.current() == monitor? " .. tostring(term.current() == mon))
