@@ -1,0 +1,1 @@
+Note for the mod I used I had to get some gradle files and the gradle installer from here. https://github.com/NeoForgeMDKs/MDK-1.21.1-NeoGradle?utm_source=chatgpt.com

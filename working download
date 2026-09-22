@@ -3,3 +3,5 @@ wget https://raw.githubusercontent.com/Logikschleifen/Minecraft/main/githubdownl
 wget https://raw.githubusercontent.com/Logikschleifen/Minecraft/main/src/inventory/main.lua main.lua
 
 wget https://raw.githubusercontent.com/Logikschleifen/Minecraft/main/src/inventory/stocker.lua stocker.lua
+
+wget https://raw.githubusercontent.com/Logikschleifen/Minecraft/main/src/inventory/screenapi.lua screenapi.lua

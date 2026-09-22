@@ -349,6 +349,125 @@ function ScreenAPI.demoKeyboardForm(mon, name)
     term.redirect(prev3)
 end
 
+---Touch demo on the monitor: click/touch to draw, buttons, resize handling.
+---Shows raw `monitor_touch` / `monitor_resize` / `mouse_click` differences.
+---Works on any size; touch coords are 1..w, 1..h in monitor chars (scaled).
+---@param mon Monitor
+---@param name string peripheral name / side, e.g. "top" or "monitor_0" (for filtering)
+function ScreenAPI.demoTouch(mon, name)
+    local col = getColors()
+    local white = col and col.white or 1
+    local black = col and col.black or 32768
+    local red = col and col.red or 16384
+    local lime = col and col.lime or col and col.green or white
+    local prev = term.redirect(mon)
+    local w, h = mon.getSize()
+
+    local function drawUI()
+        mon.clear()
+        w, h = mon.getSize()
+        mon.setBackgroundColor(black)
+        mon.setTextColor(white)
+        mon.setCursorPos(1, 1)
+        mon.write("Touch demo [" .. name .. "] " .. w .. "x" .. h)
+        mon.setCursorPos(1, 2)
+        mon.setTextColor(lime)
+        mon.write("Touch to draw. [X] top-right quits.")
+        mon.setTextColor(white)
+        -- draw a border box (any size)
+        if h >= 4 and w >= 4 then
+            mon.setCursorPos(1, 3)
+            mon.write(string.rep("-", w))
+            mon.setCursorPos(1, h)
+            mon.write(string.rep("-", w))
+            for y = 4, h - 1 do
+                mon.setCursorPos(1, y); mon.write("|")
+                mon.setCursorPos(w, y); mon.write("|")
+            end
+        end
+        -- exit button at top-right (2 chars wide)
+        mon.setCursorPos(math.max(1, w - 2), 1)
+        mon.setBackgroundColor(red)
+        mon.setTextColor(white)
+        mon.write("[X]")
+        mon.setBackgroundColor(black)
+        mon.setTextColor(white)
+        mon.setCursorPos(1, h)
+        mon.write("ENTER=quit  RESIZE=scale  Ctrl+T=exit")
+    end
+
+    drawUI()
+    term.redirect(prev)
+    print("demoTouch: waiting for monitor_touch on '" .. name .. "' — touch monitor, drag, or press ENTER on keyboard to quit")
+
+    while true do
+        local ev, p1, p2, p3 = os.pullEvent()
+        if ev == "monitor_touch" and p1 == name then
+            -- p2 = x (1..w), p3 = y (1..h) in monitor char coords (affected by setTextScale)
+            local x, y = p2, p3
+            print(string.format("  monitor_touch %s at %d,%d (size %dx%d)", tostring(p1), x, y, w, h))
+            -- draw on monitor at touch point; check exit button
+            local prev2 = term.redirect(mon)
+            if y == 1 and x >= w - 2 then
+                mon.setCursorPos(1, h)
+                mon.write("exit button touched         ")
+                term.redirect(prev2)
+                break
+            end
+            -- only draw inside inner area so UI chrome not overwritten
+            if y >= 4 and y < h and x > 1 and x < w then
+                mon.setCursorPos(x, y)
+                mon.setBackgroundColor(black)
+                if col then mon.setTextColor(lime) end
+                mon.write("X")
+                mon.setTextColor(white)
+            else
+                -- header/footer touch — echo coords
+                mon.setCursorPos(1, h - 1)
+                mon.clearLine()
+                mon.write(string.format("touch %d,%d      ", x, y))
+            end
+            term.redirect(prev2)
+        elseif ev == "monitor_resize" and p1 == name then
+            -- text scale changed externally (e.g. `monitor scale top 2`) — re-query getSize
+            local nw, nh = mon.getSize()
+            print(string.format("  monitor_resize %s -> %dx%d", tostring(p1), nw, nh))
+            local prev2 = term.redirect(mon)
+            drawUI()
+            term.redirect(prev2)
+        elseif ev == "key" then
+            local code = p1
+            local nm = nil
+            if type(keys) == "table" and type(keys.getName) == "function" then
+                local ok2, nn = pcall(keys.getName, code); if ok2 then nm = nn end
+            end
+            local isEnter = (code == 28 or code == 257 or code == 335 or nm == "enter")
+            if isEnter then
+                print("  key enter -> quit touch demo")
+                break
+            end
+            -- ESC (1) also quits
+            if code == 1 or nm == "escape" then break end
+        elseif ev == "terminate" then
+            print("  terminate -> quit")
+            break
+        end
+        -- Note: when term is redirected to monitor via `term.redirect(monitor)`,
+        -- the same physical touch also queues `mouse_click` (button, x, y) for
+        -- compatibility — see api-docs/cctweaked/rom/programs/monitor.lua:76-79
+        -- which translates monitor_touch -> mouse_click. This demo uses raw
+        -- monitor_touch so it works without redirect, but you can also do:
+        --   term.redirect(mon); local _, btn, x, y = os.pullEvent("mouse_click")
+    end
+
+    local prev3 = term.redirect(mon)
+    mon.clear()
+    mon.setCursorPos(1, 1)
+    mon.write("Touch demo done.")
+    term.redirect(prev3)
+    print("demoTouch done on " .. name)
+end
+
 -- ============================================================
 -- Full per-monitor demo exercising every monitor/term/window method
 -- ============================================================
@@ -501,7 +620,7 @@ local function demoOne(name, mon)
     -- blit via term (always available, even if mon.blit missing)
     if type(term.blit) == "function" then
         term.setCursorPos(1, 3)
-        term.blit("term.blit!", "eeeeeeeee", "fffffffff")
+        term.blit("term.blit!", "eeeeeeeeee", "ffffffffff")
         print("  term.blit('term.blit!',...)")
     end
     print("  term.current() == monitor? " .. tostring(term.current() == mon))
@@ -579,7 +698,7 @@ local function demoOne(name, mon)
     if col then term.setTextColor(white) end
     mon.write(w .. "x" .. h .. " scale " .. tostring(mon.getTextScale()))
     mon.setCursorPos(1, 3)
-    mon.write("try: screenapi keyboard")
+    mon.write("try: screenapi keyboard touch")
     term.redirect(prev2)
 
     print("")
@@ -658,28 +777,35 @@ else
         if m then demoOne(names[i], m) end
     end
 
-    -- Optional interactive keyboard demo: only if user passed "keyboard" arg.
-    -- Keeps the normal demo non-blocking for tests.
-    local wantKeyboard = false
-    if type(arg) == "table" then
-        for i = 1, #arg do if arg[i] == "keyboard" then wantKeyboard = true end end
-    end
-    -- shell.getRunningProgram args are also in ... (varargs of file)
-    -- Check via ... as fallback when run via shell
-    if not wantKeyboard then
-        -- When run as `screenapi keyboard` via shell, ... contains "keyboard"
-        local vargs = { ... }
-        for i = 1, #vargs do if vargs[i] == "keyboard" then wantKeyboard = true end end
-    end
-    if wantKeyboard and #names > 0 then
-        print('Interactive keyboard demo on "' .. names[1] .. '" — type on the computer keyboard, see it on the monitor.')
-        local m = peripheral.wrap(names[1]) --[[@as Monitor]]
-        if m then ScreenAPI.demoKeyboardForm(m, names[1]) end
-    else
-        if #names > 0 then
-            print('Tip: run `screenapi keyboard` for an interactive keyboard-on-monitor demo (read + manual os.pullEvent).')
-        end
-    end
+     -- Optional interactive demos: `keyboard` and `touch` args.
+     -- Keeps the normal demo non-blocking for tests.
+     local wantKeyboard, wantTouch = false, false
+     local function checkArg(v)
+         if v == "keyboard" or v == "keys" then wantKeyboard = true end
+         if v == "touch" or v == "click" then wantTouch = true end
+     end
+     if type(arg) == "table" then for i = 1, #arg do checkArg(arg[i]) end end
+     -- shell.getRunningProgram args are also in ... (varargs of file)
+     if not (wantKeyboard or wantTouch) then
+         local vargs = { ... }
+         for i = 1, #vargs do checkArg(vargs[i]) end
+     end
+     if (wantKeyboard or wantTouch) and #names > 0 then
+         if wantKeyboard then
+             print('Interactive keyboard demo on "' .. names[1] .. '" — type on the computer keyboard, see it on the monitor.')
+             local m = peripheral.wrap(names[1]) --[[@as Monitor]]
+             if m then ScreenAPI.demoKeyboardForm(m, names[1]) end
+         end
+         if wantTouch then
+             print('Interactive touch demo on "' .. names[1] .. '" — touch/click the monitor to draw.')
+             local m = peripheral.wrap(names[1]) --[[@as Monitor]]
+             if m then ScreenAPI.demoTouch(m, names[1]) end
+         end
+     else
+         if #names > 0 then
+             print('Tip: run `screenapi keyboard` for keyboard-on-monitor demo, `screenapi touch` for touch demo, or `screenapi keyboard touch` for both.')
+         end
+     end
 end
 
 -- close file-only log and restore terminal
